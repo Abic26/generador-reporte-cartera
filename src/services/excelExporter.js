@@ -12,8 +12,18 @@ export const EXCEL_COLUMNS = [
   { key: "paymentWeek", label: "Semana de pago", width: 16 },
   { key: "value", label: "Valor", width: 17, type: "money" },
   { key: "cash", label: "Valor contado", width: 17, type: "money" },
-  { key: "days30", label: "Valor Semana 1 - 30 días", width: 17, type: "money" },
-  { key: "days45", label: "Valor Semana 2 - 45 días", width: 17, type: "money" },
+  {
+    key: "week1Value",
+    label: "Valor Semana 1 - 30 días",
+    width: 24,
+    type: "money",
+  },
+  {
+    key: "week2Value",
+    label: "Valor Semana 2 - 45 días",
+    width: 24,
+    type: "money",
+  },
   { key: "other", label: "Otro plazo", width: 17, type: "money" },
   { key: "file", label: "Archivo origen", width: 34 },
 ];
@@ -49,8 +59,8 @@ function cellValue(row, key) {
     paymentWeek: row.paymentWeek,
     value: row.value,
     cash: row.term.key === "0" ? row.value : 0,
-    days30: row.term.key === "30" ? row.value : 0,
-    days45: row.term.key === "45" ? row.value : 0,
+    week1Value: row.paymentWeek === "Semana 1" ? row.value : 0,
+    week2Value: row.paymentWeek === "Semana 2" ? row.value : 0,
     other: row.term.key === "Otro" ? row.value : 0,
     file: row.file,
   };
