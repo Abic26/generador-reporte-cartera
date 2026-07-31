@@ -8,7 +8,8 @@ Interfaz web local para convertir informes PDF de cuentas por pagar de SIIGO en 
 - Extracción de proveedor, NIT, documento `P`, fechas y valor.
 - Clasificación por condición de pago: contado, 30 días, 45 días u otro plazo.
 - Estado de vencimiento según una fecha de corte configurable.
-- Búsqueda, filtros y exportación CSV compatible con Excel.
+- Búsqueda y filtros en pantalla.
+- Exportación `.xlsx` con una hoja por cada PDF y una hoja consolidada.
 - Procesamiento completamente local en el navegador.
 
 ## Ejecutar

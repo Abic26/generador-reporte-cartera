@@ -1,0 +1,120 @@
+import { excelDate } from '../utils/dates'
+
+export const EXCEL_COLUMNS = [
+  { key: 'nit', label: 'NIT', width: 15 },
+  { key: 'client', label: 'Nombre / Razón social', width: 35 },
+  { key: 'document', label: 'Número de documento', width: 25 },
+  { key: 'issued', label: 'Fecha factura', width: 14, type: 'date' },
+  { key: 'due', label: 'Fecha vencimiento', width: 16, type: 'date' },
+  { key: 'term', label: 'Condición', width: 19 },
+  { key: 'status', label: 'Estado al corte', width: 18 },
+  { key: 'days', label: 'Días al vencimiento', width: 17 },
+  { key: 'value', label: 'Valor', width: 17, type: 'money' },
+  { key: 'cash', label: 'Valor contado', width: 17, type: 'money' },
+  { key: 'days30', label: 'Valor 30 días', width: 17, type: 'money' },
+  { key: 'days45', label: 'Valor 45 días', width: 17, type: 'money' },
+  { key: 'other', label: 'Otro plazo', width: 17, type: 'money' },
+  { key: 'file', label: 'Archivo origen', width: 34 },
+]
+
+function safeSheetName(fileName, usedNames) {
+  const base = fileName.replace(/\.pdf$/i, '').replace(/[\\/*?:[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 31) || 'Informe'
+  let name = base
+  let suffix = 2
+  while (usedNames.has(name.toLocaleLowerCase('es'))) {
+    const ending = ` (${suffix++})`
+    name = `${base.slice(0, 31 - ending.length)}${ending}`
+  }
+  usedNames.add(name.toLocaleLowerCase('es'))
+  return name
+}
+
+function cellValue(row, key) {
+  const values = {
+    nit: row.nit, client: row.client, document: row.document,
+    issued: excelDate(row.issued), due: excelDate(row.due), term: row.term.label,
+    status: row.status.label, days: row.status.days, value: row.value,
+    cash: row.term.key === '0' ? row.value : 0,
+    days30: row.term.key === '30' ? row.value : 0,
+    days45: row.term.key === '45' ? row.value : 0,
+    other: row.term.key === 'Otro' ? row.value : 0,
+    file: row.file,
+  }
+  return values[key]
+}
+
+function styleWorksheet(sheet, rows, title, cutoff, columns) {
+  const lastColumn = String.fromCharCode(64 + Math.max(8, columns.length))
+  const tableLastColumn = String.fromCharCode(64 + columns.length)
+  sheet.mergeCells(`A1:${lastColumn}1`)
+  Object.assign(sheet.getCell('A1'), { value: title })
+  sheet.getCell('A1').font = { name: 'Arial', size: 18, bold: true, color: { argb: 'FFFFFFFF' } }
+  sheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B4168' } }
+  sheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'left' }
+  sheet.getRow(1).height = 34
+  sheet.getCell('A2').value = 'Fecha de corte'
+  sheet.getCell('B2').value = excelDate(cutoff)
+  sheet.getCell('B2').numFmt = 'yyyy-mm-dd'
+  sheet.getCell('D2').value = 'Facturas'
+  sheet.getCell('E2').value = rows.length
+  sheet.getCell('G2').value = 'Total cartera'
+  sheet.getCell('H2').value = rows.reduce((sum, row) => sum + row.value, 0)
+  sheet.getCell('H2').numFmt = '$#,##0.00;[Red]-$#,##0.00'
+  ;['A2', 'D2', 'G2'].forEach((address) => { sheet.getCell(address).font = { bold: true, color: { argb: 'FF0B4168' } } })
+  sheet.mergeCells(`A4:${lastColumn}4`)
+  sheet.getCell('A4').value = 'Columnas incluidas según la selección realizada en JD Eléctricos.'
+  sheet.getCell('A4').font = { italic: true, size: 9, color: { argb: 'FF6F817C' } }
+  sheet.getCell('A4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF6D9' } }
+
+  const header = sheet.getRow(6)
+  header.values = columns.map((column) => column.label)
+  header.height = 28
+  header.eachCell((cell) => {
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B4168' } }
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  })
+  rows.forEach((row, index) => {
+    const dataRow = sheet.getRow(index + 7)
+    dataRow.values = columns.map((column) => cellValue(row, column.key))
+    dataRow.height = 20
+    dataRow.eachCell((cell, columnIndex) => {
+      cell.font = { name: 'Arial', size: 9, color: { argb: 'FF29433E' } }
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE5EB' } } }
+      cell.alignment = { vertical: 'middle' }
+      const type = columns[columnIndex - 1].type
+      if (type === 'date') cell.numFmt = 'yyyy-mm-dd'
+      if (type === 'money') cell.numFmt = '$#,##0.00;[Red]-$#,##0.00'
+    })
+    if (index % 2) dataRow.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+  })
+  sheet.columns = columns.map((column) => ({ width: column.width }))
+  sheet.views = [{ state: 'frozen', ySplit: 6, xSplit: Math.min(2, columns.length), showGridLines: false }]
+  if (rows.length) sheet.autoFilter = { from: 'A6', to: `${tableLastColumn}${rows.length + 6}` }
+  sheet.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 }
+  sheet.headerFooter.oddFooter = `&LGenerado por JD Eléctricos&C&P de &N&RFecha de corte: ${cutoff}`
+}
+
+export async function exportCarteraExcel({ rows, files, cutoff, selectedColumnKeys }) {
+  const ExcelJS = (await import('exceljs/dist/exceljs.min.js')).default
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'JD Eléctricos'
+  workbook.company = 'JD Eléctricos e Industria SAS'
+  workbook.created = new Date()
+  const columns = EXCEL_COLUMNS.filter((column) => selectedColumnKeys.includes(column.key))
+  const consolidated = workbook.addWorksheet('Consolidado', { properties: { tabColor: { argb: 'FF0B4168' } } })
+  styleWorksheet(consolidated, rows, 'Consolidado de cuentas por pagar', cutoff, columns)
+  const usedNames = new Set(['consolidado'])
+  files.forEach((file) => {
+    const name = safeSheetName(file.name, usedNames)
+    const sheet = workbook.addWorksheet(name, { properties: { tabColor: { argb: 'FFF1B81A' } } })
+    styleWorksheet(sheet, rows.filter((row) => row.file === file.name), `Cartera - ${name}`, cutoff, columns)
+  })
+  const buffer = await workbook.xlsx.writeBuffer()
+  const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `informe-cartera-${cutoff}.xlsx`
+  anchor.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
