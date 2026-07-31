@@ -9,6 +9,7 @@ const {
   query,
   statusFilter,
   termFilter,
+  weekFilter,
   cutoff,
   dragActive,
   money,
@@ -175,6 +176,11 @@ const {
             <option value="45">45 días</option>
             <option value="Otro">Otro plazo</option>
           </select>
+          <select v-model="weekFilter" aria-label="Filtrar por semana de pago">
+            <option>Todas</option>
+            <option>Semana 1</option>
+            <option>Semana 2</option>
+          </select>
           <button
             class="export-button"
             :disabled="loading || !filtered.length || !selectedColumns.length"
@@ -222,6 +228,7 @@ const {
                 <th>Vencimiento</th>
                 <th>Condición</th>
                 <th>Estado</th>
+                <th>Semana de pago</th>
                 <th class="right">Valor</th>
               </tr>
             </thead>
@@ -248,10 +255,17 @@ const {
                     ><i></i>{{ row.status.label }}</span
                   >
                 </td>
+                <td>
+                  <span
+                    class="week-badge"
+                    :class="row.paymentWeek === 'Semana 1' ? 'week-one' : 'week-two'"
+                    >{{ row.paymentWeek }}</span
+                  >
+                </td>
                 <td class="right amount">{{ money.format(row.value) }}</td>
               </tr>
               <tr v-if="!filtered.length">
-                <td colspan="6" class="empty">
+                <td colspan="7" class="empty">
                   No hay facturas que coincidan con los filtros.
                 </td>
               </tr>

@@ -690,6 +690,21 @@ td code {
   color: #267359;
   background: #e3f2ea;
 }
+.week-badge {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.week-one {
+  color: #0b4168;
+  background: #fff0bd;
+}
+.week-two {
+  color: #fff;
+  background: #0b4168;
+}
 .empty {
   padding: 45px;
   color: #84928f;

@@ -11,6 +11,7 @@ export function useCartera() {
   const query = ref("");
   const statusFilter = ref("Todos");
   const termFilter = ref("Todos");
+  const weekFilter = ref("Todas");
   const cutoff = ref(new Date().toISOString().slice(0, 10));
   const dragActive = ref(false);
   const selectedColumns = ref(EXCEL_COLUMNS.map((column) => column.key));
@@ -26,6 +27,10 @@ export function useCartera() {
       return { key: "Vencida", label: `${Math.abs(days)} d vencida`, days };
     if (days === 0) return { key: "Hoy", label: "Vence hoy", days };
     return { key: "Por vencer", label: `En ${days} días`, days };
+  }
+
+  function paymentWeekFor(days) {
+    return days <= 8 ? "Semana 1" : "Semana 2";
   }
 
   async function loadFiles(input) {
@@ -76,7 +81,10 @@ export function useCartera() {
     loadFiles(event.dataTransfer.files);
   }
   const enriched = computed(() =>
-    invoices.value.map((row) => ({ ...row, status: statusFor(row.due) })),
+    invoices.value.map((row) => {
+      const status = statusFor(row.due);
+      return { ...row, status, paymentWeek: paymentWeekFor(status.days) };
+    }),
   );
   const filtered = computed(() => {
     const needle = query.value.trim().toLocaleLowerCase("es");
@@ -90,7 +98,8 @@ export function useCartera() {
         text &&
         (statusFilter.value === "Todos" ||
           row.status.key === statusFilter.value) &&
-        (termFilter.value === "Todos" || row.term.key === termFilter.value)
+        (termFilter.value === "Todos" || row.term.key === termFilter.value) &&
+        (weekFilter.value === "Todas" || row.paymentWeek === weekFilter.value)
       );
     });
   });
@@ -152,6 +161,7 @@ export function useCartera() {
     query,
     statusFilter,
     termFilter,
+    weekFilter,
     cutoff,
     dragActive,
     money,
