@@ -12,8 +12,8 @@ export const EXCEL_COLUMNS = [
   { key: "paymentWeek", label: "Semana de pago", width: 16 },
   { key: "value", label: "Valor", width: 17, type: "money" },
   { key: "cash", label: "Valor contado", width: 17, type: "money" },
-  { key: "days30", label: "Valor 30 días", width: 17, type: "money" },
-  { key: "days45", label: "Valor 45 días", width: 17, type: "money" },
+  { key: "days30", label: "Valor Semana 1 - 30 días", width: 17, type: "money" },
+  { key: "days45", label: "Valor Semana 2 - 45 días", width: 17, type: "money" },
   { key: "other", label: "Otro plazo", width: 17, type: "money" },
   { key: "file", label: "Archivo origen", width: 34 },
 ];
