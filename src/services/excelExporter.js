@@ -67,6 +67,74 @@ function cellValue(row, key) {
   return values[key];
 }
 
+function groupRowsBySupplier(rows) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    const key = row.nit || row.client;
+    if (!groups.has(key)) {
+      groups.set(key, { nit: row.nit, client: row.client, rows: [] });
+    }
+    groups.get(key).rows.push(row);
+  });
+  return [...groups.values()].sort((a, b) =>
+    a.client.localeCompare(b.client, "es", { sensitivity: "base" }),
+  );
+}
+
+function excelColumnLetter(index) {
+  let value = index;
+  let result = "";
+  while (value > 0) {
+    value -= 1;
+    result = String.fromCharCode(65 + (value % 26)) + result;
+    value = Math.floor(value / 26);
+  }
+  return result;
+}
+
+function styleDataRow(dataRow, columns, striped) {
+  dataRow.height = 20;
+  dataRow.eachCell((cell, columnIndex) => {
+    cell.font = { name: "Arial", size: 9, color: { argb: "FF29433E" } };
+    cell.border = { bottom: { style: "hair", color: { argb: "FFDDE5EB" } } };
+    cell.alignment = { vertical: "middle" };
+    const type = columns[columnIndex - 1].type;
+    if (type === "date") cell.numFmt = "yyyy-mm-dd";
+    if (type === "money") cell.numFmt = "$#,##0.00;[Red]-$#,##0.00";
+  });
+  if (striped) {
+    dataRow.eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+    });
+  }
+}
+
+function addSupplierSubtotal(sheet, rowNumber, startRow, endRow, group, columns) {
+  const subtotalRow = sheet.getRow(rowNumber);
+  const labelIndex = columns.findIndex((column) => column.type !== "money");
+  const safeLabelIndex = labelIndex >= 0 ? labelIndex : 0;
+  subtotalRow.getCell(safeLabelIndex + 1).value = `TOTAL ${group.client} - NIT ${group.nit}`;
+
+  columns.forEach((column, index) => {
+    if (column.type !== "money" || index === safeLabelIndex) return;
+    const letter = excelColumnLetter(index + 1);
+    const cell = subtotalRow.getCell(index + 1);
+    cell.value = { formula: `SUM(${letter}${startRow}:${letter}${endRow})` };
+    cell.numFmt = "$#,##0.00;[Red]-$#,##0.00";
+  });
+
+  subtotalRow.height = 24;
+  subtotalRow.eachCell((cell) => {
+    cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF0B4168" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF0BD" } };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFF1B81A" } },
+      bottom: { style: "medium", color: { argb: "FF0B4168" } },
+    };
+    cell.alignment = { vertical: "middle" };
+  });
+}
+
 function styleWorksheet(sheet, rows, title, cutoff, columns) {
   const lastColumn = String.fromCharCode(64 + Math.max(8, columns.length));
   const tableLastColumn = String.fromCharCode(64 + columns.length);
@@ -131,26 +199,26 @@ function styleWorksheet(sheet, rows, title, cutoff, columns) {
       wrapText: true,
     };
   });
-  rows.forEach((row, index) => {
-    const dataRow = sheet.getRow(index + 7);
-    dataRow.values = columns.map((column) => cellValue(row, column.key));
-    dataRow.height = 20;
-    dataRow.eachCell((cell, columnIndex) => {
-      cell.font = { name: "Arial", size: 9, color: { argb: "FF29433E" } };
-      cell.border = { bottom: { style: "hair", color: { argb: "FFDDE5EB" } } };
-      cell.alignment = { vertical: "middle" };
-      const type = columns[columnIndex - 1].type;
-      if (type === "date") cell.numFmt = "yyyy-mm-dd";
-      if (type === "money") cell.numFmt = "$#,##0.00;[Red]-$#,##0.00";
+  let currentRow = 7;
+  let dataIndex = 0;
+  groupRowsBySupplier(rows).forEach((group) => {
+    const groupStartRow = currentRow;
+    group.rows.forEach((row) => {
+      const dataRow = sheet.getRow(currentRow);
+      dataRow.values = columns.map((column) => cellValue(row, column.key));
+      styleDataRow(dataRow, columns, dataIndex % 2 === 1);
+      currentRow += 1;
+      dataIndex += 1;
     });
-    if (index % 2)
-      dataRow.eachCell((cell) => {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FFF8FAFC" },
-        };
-      });
+    addSupplierSubtotal(
+      sheet,
+      currentRow,
+      groupStartRow,
+      currentRow - 1,
+      group,
+      columns,
+    );
+    currentRow += 3;
   });
   sheet.columns = columns.map((column) => ({ width: column.width }));
   sheet.views = [
@@ -164,7 +232,7 @@ function styleWorksheet(sheet, rows, title, cutoff, columns) {
   if (rows.length)
     sheet.autoFilter = {
       from: "A6",
-      to: `${tableLastColumn}${rows.length + 6}`,
+      to: `${tableLastColumn}${currentRow - 3}`,
     };
   sheet.pageSetup = {
     orientation: "landscape",
@@ -187,6 +255,8 @@ export async function exportCarteraExcel({
   workbook.creator = "JD Eléctricos";
   workbook.company = "JD Eléctricos e Industria SAS";
   workbook.created = new Date();
+  workbook.calcProperties.fullCalcOnLoad = true;
+  workbook.calcProperties.forceFullCalc = true;
   const columns = EXCEL_COLUMNS.filter((column) =>
     selectedColumnKeys.includes(column.key),
   );
